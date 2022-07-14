@@ -33,6 +33,7 @@ final playersProvider = StateProvider<List<int>>((ref) {
 class CurrentRound extends StateNotifier<List<int>> {
   final int len;
 
+
   CurrentRound({required this.len})
       : super(List.generate(len, (index) => index + 1)..shuffle());
 
