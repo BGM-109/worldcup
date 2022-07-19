@@ -39,6 +39,7 @@ dependencies:
   firebase_core: ^1.19.1
   cloud_firestore: ^3.2.1
   freezed_annotation:
+  confetti: ^0.7.0
 
 dev_dependencies:
   build_runner:

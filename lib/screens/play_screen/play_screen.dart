@@ -1,120 +1,134 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:worldcup/models/protein_model.dart';
+import 'package:go_router/go_router.dart';
 import 'package:worldcup/repository/firestore_repository.dart';
-
-final itemsProvider =
-    StateNotifierProvider<PagingNotifier, AsyncValue<List<ProteinModel>>>(
-        (ref) => PagingNotifier(repo: FirestoreRepository(), page: 2)..init());
-
-class PagingNotifier extends StateNotifier<AsyncValue<List<ProteinModel>>> {
-  PagingNotifier({required this.repo, required this.page})
-      : super(const AsyncValue.loading());
-  final FirestoreRepository repo;
-  List<ProteinModel> items = [];
-  final int page;
-  int index = 0;
-  List<ProteinModel> next = [];
-
-  void init() async {
-    var data = await repo.getProteins();
-    data.shuffle();
-    var result = data.sublist(0, 16);
-    items = [...result];
-
-    fetchData();
-  }
-
-  int get getIndex => index;
-
-  Future<void> fetchData() async {
-    state = AsyncValue.loading();
-    Future.delayed(Duration(milliseconds: 500), () {
-      int first = index * page;
-      int last = (index + 1) * page;
-      if (last - 1 <= items.length) {
-        var list = items.sublist(first, last);
-        state = AsyncValue.data([...list]);
-      } else {
-        resetIndex();
-        fetchData();
-      }
-    });
-  }
-
-  Future<void> selectData(ProteinModel p) async {
-    state = AsyncValue.loading();
-    if (items.length == 2) {
-      state = AsyncValue.data([p]);
-    } else {
-      index += 1;
-      next = [...next, p];
-      print(next);
-      Future.delayed(Duration(milliseconds: 500), () {
-        fetchData();
-      });
-    }
-  }
-
-  void resetIndex() {
-    index = 0;
-    items = [...next];
-    next.clear();
-  }
-}
+import 'package:worldcup/screens/play_screen/play_provider.dart';
+import 'package:worldcup/screens/result_screen/result_screen.dart';
 
 class PlayScreen extends ConsumerWidget {
-  const PlayScreen({Key? key}) : super(key: key);
+  const PlayScreen({Key? key, required this.query}) : super(key: key);
+  final String? query;
   static const String routeName = "/play_screen";
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final proteins = ref.watch(proteinsProvider);
-    final itemsAsync = ref.watch(itemsProvider);
-    final itemsRead = ref.read(itemsProvider.notifier);
+    final double width = MediaQuery.of(context).size.width;
+    final round = int.parse(query!);
+    final itemsAsync = ref.watch(itemsProvider(round));
+    final itemsRead = ref.read(itemsProvider(round).notifier);
+    final result = ref.watch(resultProvider.state);
+
     return Scaffold(
+        backgroundColor: Colors.black,
         body: itemsAsync.when(
             data: (data) {
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                      "${(itemsRead.index * itemsRead.page).toString()} / ${itemsRead.items.length}"),
+                    "프로틴 월드컵 ${(itemsRead.index * itemsRead.page).toString()} / ${itemsRead.items.length}",
+                    style: const TextStyle(color: Colors.white),
+                  ),
                   const SizedBox(
                     height: 100,
                   ),
-                  Row(
-                    children: data
-                        .map((p) => Expanded(
-                              flex: 1,
-                              child: Container(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 100,
-                                      height: 100,
-                                      decoration: BoxDecoration(
-                                          image: DecorationImage(
-                                              image: NetworkImage(p.igmUrl))),
-                                    ),
-                                    TextButton(
-                                        onPressed: () {
-                                          ref
-                                              .read(itemsProvider.notifier)
-                                              .selectData(p);
-                                        },
-                                        child: Text(p.title.toString())),
-                                  ],
+                  Stack(alignment: Alignment.center, children: [
+                    Row(children: [
+                      ...data
+                          .map((p) => Expanded(
+                                flex: 1,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (itemsRead.items.length == 2) {
+                                      result.state = p;
+                                      GoRouter.of(context)
+                                          .push(ResultScreen.routeName);
+                                    } else {
+                                      ref
+                                          .read(itemsProvider(round).notifier)
+                                          .selectData(p);
+                                    }
+                                  },
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: width / 2,
+                                        height: width / 2,
+                                        decoration: BoxDecoration(
+                                            image: DecorationImage(
+                                                image: NetworkImage(
+                                                  p.igmUrl,
+                                                ),
+                                                fit: BoxFit.cover)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
+                              ))
+                          .toList(),
+                    ]),
+                  ]),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            Text(
+                              data[0].title,
+                            ),
+                            Text(
+                              data[0].description,
+                            ),
+                            Text(data[0].price.toString()),
+                            Text(data[0].serving.toString()),
+                            Text(data[0].proteins.toString()),
+                            Text("단백질성분"),
+                            Text("맛")
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            Text(
+                              "이름",
+                            ),
+                            Text("특징"),
+                            Text("정가"),
+                            Text("용량"),
+                            Text("스쿱당 단백질"),
+                            Text("단백질성분"),
+                            Text("맛")
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            Text(
+                              data[1].title,
+                            ),
+                            Text(
+                              data[1].description,
+                            ),
+                            Text(data[1].price.toString()),
+                            Text(data[1].serving.toString()),
+                            Text(data[1].proteins.toString()),
+                            Text("단백질성분"),
+                            Text("맛")
+                          ],
+                        ),
+                      )
+                    ],
+                  )
                 ],
               );
             },
-            error: (err, _) => Text("error"),
+            error: (err, _) => const Text("error"),
             loading: () => const Center(child: CircularProgressIndicator())));
   }
 }
